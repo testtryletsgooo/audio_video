@@ -21,5 +21,7 @@ COPY . .
 RUN mkdir -p uploads processed
 
 # 6. Run the application using Gunicorn
-# Render expects the app to listen on port 10000 by default
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--timeout", "120", "app:app"]
+# --workers 1: Ensures all requests go to the same memory (fixes 404s)
+# --threads 8: Allows the server to handle status checks while converting (fixes 502s)
+# --timeout 0: Disables timeout so long conversions don't get killed
+CMD ["gunicorn", "--workers", "1", "--threads", "8", "--bind", "0.0.0.0:10000", "--timeout", "0", "app:app"]
