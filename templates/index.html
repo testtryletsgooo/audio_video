@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio to MP4 Converter</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .progress-bar-transition {
+            transition: width 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 font-sans min-h-screen flex flex-col items-center py-10">
+
+    <div class="w-full max-w-2xl bg-gray-800 rounded-xl shadow-2xl p-8 border border-gray-700">
+        <h1 class="text-3xl font-bold text-center mb-2 text-blue-400">Audio to Video Converter</h1>
+        <p class="text-center text-gray-400 mb-8">Upload MP3/WAV files. We'll add a background and convert them to MP4.</p>
+
+        <!-- Upload Form -->
+        <div id="uploadSection" class="mb-6 space-y-6">
+            
+            <!-- Audio Upload Area -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">1. Select Audio Files</label>
+                <label class="block">
+                    <div class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-700 hover:bg-gray-600 transition group">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <i class="fas fa-music text-3xl text-gray-400 group-hover:text-blue-400 mb-2 transition"></i>
+                            <p class="mb-2 text-sm text-gray-400"><span class="font-semibold">Click to upload audio</span></p>
+                            <p class="text-xs text-gray-500">MP3, WAV, OGG</p>
+                        </div>
+                        <input id="fileInput" type="file" class="hidden" multiple accept="audio/*" />
+                    </div>
+                </label>
+                <div id="fileList" class="text-sm text-gray-300 mt-2 px-2"></div>
+            </div>
+
+            <!-- Image Upload Area -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">2. (Optional) Select Background Image</label>
+                <label class="block">
+                    <div class="flex items-center justify-between w-full px-4 py-3 border border-gray-600 rounded-lg cursor-pointer bg-gray-700 hover:bg-gray-600 transition group">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-image text-gray-400 group-hover:text-green-400 transition"></i>
+                            <span id="bgFileName" class="text-sm text-gray-400">Default (Dark Blue)</span>
+                        </div>
+                        <span class="bg-gray-600 text-xs px-2 py-1 rounded text-gray-300">Browse</span>
+                        <input id="bgInput" type="file" class="hidden" accept="image/*" />
+                    </div>
+                </label>
+            </div>
+
+            <button onclick="startUpload()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg transition transform active:scale-95 shadow-lg mt-4">
+                Start Conversion
+            </button>
+        </div>
+
+        <!-- Progress Section (Hidden initially) -->
+        <div id="progressSection" class="hidden">
+            <h3 class="text-lg font-semibold mb-2 text-white">Converting...</h3>
+            <p id="statusText" class="text-sm text-blue-300 mb-2">Initializing...</p>
+            
+            <div class="w-full bg-gray-700 rounded-full h-4 mb-6 overflow-hidden">
+                <div id="progressBar" class="bg-blue-500 h-4 rounded-full progress-bar-transition" style="width: 0%"></div>
+            </div>
+
+            <!-- Terminal-like Log Output -->
+            <div class="bg-black rounded-md p-4 font-mono text-xs text-green-400 h-32 overflow-y-auto shadow-inner border border-gray-700" id="terminalLog">
+                <p>> System initialized.</p>
+                <p>> Waiting for server response...</p>
+            </div>
+        </div>
+
+        <!-- Results Section (Hidden initially) -->
+        <div id="resultSection" class="hidden mt-8 border-t border-gray-700 pt-6">
+            <h3 class="text-xl font-bold text-green-400 mb-4"><i class="fas fa-check-circle"></i> Conversion Complete</h3>
+            <div id="downloadLinks" class="space-y-3">
+                <!-- Links injected here -->
+            </div>
+            <button onclick="location.reload()" class="mt-6 text-sm text-gray-400 hover:text-white underline">Convert more files</button>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const bgInput = document.getElementById('bgInput');
+        const fileList = document.getElementById('fileList');
+        const bgFileName = document.getElementById('bgFileName');
+        const uploadSection = document.getElementById('uploadSection');
+        const progressSection = document.getElementById('progressSection');
+        const resultSection = document.getElementById('resultSection');
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+        const terminalLog = document.getElementById('terminalLog');
+        const downloadLinks = document.getElementById('downloadLinks');
+
+        // Show selected audio file names
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                fileList.innerHTML = `<ul class="list-disc pl-5">${Array.from(fileInput.files).map(f => `<li>${f.name}</li>`).join('')}</ul>`;
+            } else {
+                fileList.innerHTML = '';
+            }
+        });
+
+        // Show selected background file name
+        bgInput.addEventListener('change', () => {
+            if (bgInput.files.length > 0) {
+                bgFileName.innerText = bgInput.files[0].name;
+                bgFileName.classList.add('text-white');
+            } else {
+                bgFileName.innerText = "Default (Dark Blue)";
+                bgFileName.classList.remove('text-white');
+            }
+        });
+
+        function log(msg) {
+            const p = document.createElement('p');
+            p.innerText = `> ${msg}`;
+            terminalLog.appendChild(p);
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+        }
+
+        async function startUpload() {
+            if (fileInput.files.length === 0) {
+                alert("Please select at least one audio file.");
+                return;
+            }
+
+            const formData = new FormData();
+            
+            // Append Audio Files
+            for (const file of fileInput.files) {
+                formData.append('audioFiles', file);
+            }
+
+            // Append Background Image if exists
+            if (bgInput.files.length > 0) {
+                formData.append('backgroundImage', bgInput.files[0]);
+                log(`Background image selected: ${bgInput.files[0].name}`);
+            } else {
+                log("No background image selected. Using default.");
+            }
+
+            uploadSection.classList.add('hidden');
+            progressSection.classList.remove('hidden');
+            log("Uploading files...");
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Upload failed");
+
+                const data = await response.json();
+                const jobId = data.job_id;
+                log(`Upload complete. Job ID: ${jobId}`);
+                log("Starting conversion engine...");
+                
+                trackProgress(jobId);
+
+            } catch (error) {
+                log(`Error: ${error.message}`);
+                alert("An error occurred during upload.");
+                location.reload();
+            }
+        }
+
+        async function trackProgress(jobId) {
+            let interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/status/${jobId}`);
+                    const data = await res.json();
+
+                    if (data.error) {
+                        clearInterval(interval);
+                        alert(data.error);
+                        return;
+                    }
+
+                    // Update UI
+                    progressBar.style.width = data.percent + '%';
+                    statusText.innerText = `${data.percent}% - ${data.current_file}`;
+                    
+                    // Simple logic to not spam logs: only log if text changes
+                    const lastLog = terminalLog.lastElementChild ? terminalLog.lastElementChild.innerText : "";
+                    if (!lastLog.includes(data.current_file) && data.current_file) {
+                        log(data.current_file);
+                    }
+
+                    if (data.status === 'completed') {
+                        clearInterval(interval);
+                        log("Process finished successfully.");
+                        showResults(data.files_done);
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        log("Process failed.");
+                        alert("Conversion failed on server: " + (data.errors ? data.errors.join(', ') : 'Unknown error'));
+                        location.reload();
+                    }
+
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 1000); // Poll every 1 second
+        }
+
+        function showResults(files) {
+            progressSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+
+            downloadLinks.innerHTML = files.map(file => `
+                <div class="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
+                    <span class="truncate w-2/3">${file}</span>
+                    <a href="/download/${file}" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded text-sm font-bold shadow transition">
+                        <i class="fas fa-download mr-1"></i> Download
+                    </a>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
